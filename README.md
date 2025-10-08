@@ -1,3 +1,4 @@
+![](images/1.png)
 This solution provides a local (or "on-premise") web user interface for Ollama models and includes a Python-based proxy server. This server handles CORS (Cross-Origin Resource Sharing) issues and integrates a DuckDuckGo search functionality, allowing the model to work with real-time information.
 
 🚀 SimpleChat for Ollama - Installation and Usage Guide
