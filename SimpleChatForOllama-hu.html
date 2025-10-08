@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Egy Modell Chat</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f0f0f0;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            border: none;
+            background: #f0f0f0;
+            color: #555;
+        }
+
+        .tab:hover {
+            background: #e0e0e0;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .config-section {
+            padding: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group textarea {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 40px;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            flex-wrap: wrap;
+            align-items: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .message-input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background: #ffffff;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .message-input-area textarea {
+            flex-grow: 1;
+            resize: none;
+            height: 40px;
+            overflow-y: hidden;
+        }
+
+        .message-input-area button {
+            width: 120px;
+        }
+
+        .file-upload-area {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 106, 136, 0.4);
+        }
+
+        .uploaded-files {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .file-tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #2e7d32;
+        }
+
+        .file-tag .remove-file {
+            cursor: pointer;
+            color: #d32f2f;
+            font-weight: bold;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .file-tag .remove-file:hover {
+            color: #b71c1c;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+            color: white;
+            padding: 10px 20px;
+        }
+        
+        .btn-send:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-new-chat {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-new-chat:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .chat-container {
+            padding: 20px;
+            height: 450px;
+            overflow-y: auto;
+            background: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: #e0e0e0;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 5px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-message {
+            background: #e6e9ff;
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+
+        .model-a-message {
+            background: #f0f0f0;
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .user-message .message-header {
+            color: #3f51b5;
+        }
+        
+        .model-a-message .message-header {
+            color: #009688;
+        }
+
+        .system-msg {
+            color: #00aa00;
+            text-align: center;
+            font-weight: bold;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .error-msg {
+            color: #cc0000;
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow-x: auto;
+            position: relative;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .code-block::before {
+            content: 'Code';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background 0.3s;
+            z-index: 10;
+        }
+
+        .copy-btn:hover {
+            background: #45a049;
+        }
+
+        .copy-btn.copied {
+            background: #2196F3;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-bar {
+            padding: 10px 20px;
+            background: #e8eaf6;
+            text-align: center;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .history-container {
+            padding: 20px;
+        }
+
+        .history-item {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .history-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.2);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .history-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .history-models {
+            font-size: 12px;
+            color: #555;
+        }
+
+        .btn-delete {
+            background: #f44336;
+            color: white;
+            padding: 5px 15px;
+            font-size: 12px;
+        }
+
+        .btn-delete:hover {
+            background: #d32f2f;
+        }
+
+        .btn-load {
+            background: #4caf50;
+            color: white;
+            padding: 5px 15px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+
+        .btn-load:hover {
+            background: #45a049;
+        }
+
+        .btn-export-single {
+            background: linear-gradient(135deg, #2196F3 0%, #03a9f4 100%);
+            color: white;
+            padding: 5px 15px;
+            font-size: 12px;
+            margin-right: 5px; 
+        }
+        
+        .btn-export-single:hover {
+            background: linear-gradient(135deg, #1e88e5 0%, #039be5 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Ollama - Web UI</h1>
+
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="chat">💬 Chat</button>
+            <button class="tab" data-tab="settings">⚙️ Beállítások</button>
+            <button class="tab" data-tab="history">📚 Előzmények</button>
+        </div>
+
+        <div class="tab-content active" id="chat-tab">
+            <div class="button-group">
+                <button class="btn-new-chat" id="newChatBtn">✨ Új Beszélgetés</button>
+                <button class="btn-stop" id="stopBtn" disabled>⏹️ Leállítás</button>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="showOnlyLastCode" style="width: 18px; height: 18px; cursor: pointer;">
+                    <span style="font-size: 14px; color: #555; font-weight: 600;">Csak utolsó kód</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="enableDuckDuckGo" style="width: 18px; height: 18px; cursor: pointer;">
+                    <span style="font-size: 14px; color: #555; font-weight: 600; color: #00796B;">Start DuckDuck</span>
+                </label>
+            </div>
+
+            <div class="status-bar" id="statusBar">Kész az indításra</div>
+
+            <div class="chat-container" id="chatContainer">
+                <div class="system-msg">Üdvözöllek! Állítsd be a modellt a **Beállítások** fülön, és indíts egy új beszélgetést, vagy küldd el az első üzeneted.</div>
+            </div>
+            
+            <div class="message-input-area">
+                <div class="file-upload-area">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" accept=".py,.txt,.json,.csv,.xml,.html,.md,.log,.yaml,.yml" multiple>
+                        <label for="fileInput" class="file-input-label">📎 Fájl csatolása</label>
+                    </div>
+                    <div class="uploaded-files" id="uploadedFiles"></div>
+                </div>
+                <div class="input-row">
+                    <textarea id="userInput" placeholder="Írd ide az üzeneted..." rows="1" oninput="autoExpand(this)"></textarea>
+                    <button class="btn-send" id="sendBtn">➡️ Küldés</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="settings-tab">
+             <div class="config-section">
+                <div class="section-title">⚙️ Konfiguráció</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="model">Modell neve:</label>
+                        <input type="text" id="model" value="deepseek-v3.1:671b-cloud">
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="section-title">💤 Személyiség (System Prompt)</div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="prompt">Modell személyisége:</label>
+                        <textarea id="prompt" rows="3">Te egy okos, segítőkész asszisztens vagy. Pontos, logikus, kreatív és informatív válaszokat adsz, a felhasználó tudását fejlesztve. A hangnem barátságos, támogató, türelmes, de mindig tisztelettudó.
+
+Irányelvek:
+1. Légy precíz és gondos minden kérdés esetén, különösen számítások, logikai feladatok vagy bonyolult témák esetén.
+2. Minden lényeges számítást, magyarázatot és érvelést lépésről lépésre ismertess.
+3. Figyelj a kérdés pontos megfogalmazására; ne tételezz fel automatikusan klasszikus megoldásokat.
+4. Ne reprodukálj szerzői jog által védett tartalmat.
+5. Soha ne adj illegális vagy veszélyes tanácsot.
+6. Ha a kérdés nem teljesen egyértelmű, kérdezz vissza.
+7. Adj világos, példákkal és részletekkel alátámasztott magyarázatot, ha szükséges.
+8. Alkalmazkodj a felhasználó tudásszintjéhez, és ösztönözd a kíváncsiságot.
+9. Tartsd a válaszokat érthetőek, de legyenek informatívak.
+10. Légy kreatív, segítőkész és türelmes minden feladatban.
+11. Programozási feladatoknál:
+    - Te egy tapasztalt programozó vagy. Minden felhasználói kérést egy teljes, működő kóddal válaszolsz meg. Ha magyarázatot adsz, azt külön kódblokkban add meg. A cél, hogy hatékony, tiszta kódot írj.
+    - Mindig végezz hibakeresést és javítsd a kódot hiba esetén.
+    - Törekedj a kapott kód tökéletesítésére, tovább fejlesztésére.
+12. Használd a tudásodat asszisztensként: válaszolj okosan, ajánlj lehetőségeket, oldj meg problémákat, és támogasd a felhasználót a döntéseiben.
+13. Csillagászati, tudományos Kérdéseknél:
+    - Adj bő választ. 
+    - Készíts esszé szerű tudományos leiratot. 
+    - Támaszd alá számításokkal, érvekkel.
+14. Mindig a kérdező anyanyelvén válaszolj.
+    </textarea>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 20px; text-align: center; color: #888;">
+                <p>A változtatások azonnal életbe lépnek az **Új Beszélgetés** indításakor.</p>
+            </div>
+        </div>
+        <div class="tab-content" id="history-tab">
+            <div class="history-container">
+                <div class="section-title">📚 Mentett Beszélgetések</div>
+                <button class="btn-new-chat" id="exportHistoryBtn" style="margin-bottom: 20px;">📄 Összes exportálása HTML-be</button> 
+                <div id="historyList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let stopRequested = false;
+        let abortController = null;
+        let db = null;
+        let currentConversationId = null;
+        let conversationMessages = [];
+        let uploadedFiles = [];
+
+        const OLLAMA_API = 'http://localhost:5000/api/chat';
+        const DUCKDUCKGO_API = 'http://localhost:5000/api/duckduckgo';
+
+        function autoExpand(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        }
+
+        $('#fileInput').on('change', function(e) {
+            const files = Array.from(e.target.files);
+            
+            files.forEach(file => {
+                const allowedTypes = ['.py', '.txt', '.json', '.csv', '.xml', '.html', '.md', '.log', '.yaml', '.yml'];
+                const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!allowedTypes.includes(fileExt)) {
+                    appendMessage(`❌ Nem támogatott fájltípus: ${file.name}`, 'error');
+                    return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    appendMessage(`❌ Túl nagy fájl (max 5MB): ${file.name}`, 'error');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    uploadedFiles.push({
+                        name: file.name,
+                        content: event.target.result,
+                        type: fileExt
+                    });
+                    updateFileDisplay();
+                    appendMessage(`✅ Fájl feltöltve: ${file.name}`, 'system');
+                };
+                reader.readAsText(file);
+            });
+            
+            $(this).val('');
+        });
+
+        function updateFileDisplay() {
+            const $container = $('#uploadedFiles');
+            $container.empty();
+            
+            uploadedFiles.forEach((file, index) => {
+                $container.append(`
+                    <div class="file-tag">
+                        <span>📄 ${file.name}</span>
+                        <span class="remove-file" data-index="${index}">×</span>
+                    </div>
+                `);
+            });
+        }
+
+        $(document).on('click', '.remove-file', function() {
+            const index = $(this).data('index');
+            const fileName = uploadedFiles[index].name;
+            uploadedFiles.splice(index, 1);
+            updateFileDisplay();
+            appendMessage(`🗑️ Fájl eltávolítva: ${fileName}`, 'system');
+        });
+
+        function buildMessageWithFiles(userMessage) {
+            if (uploadedFiles.length === 0) {
+                return userMessage;
+            }
+            
+            let fullMessage = userMessage + '\n\n### Csatolt fájlok:\n\n';
+            
+            uploadedFiles.forEach((file, index) => {
+                fullMessage += `**Fájl ${index + 1}: ${file.name}**\n`;
+                fullMessage += '```' + file.type.replace('.', '') + '\n';
+                fullMessage += file.content + '\n';
+                fullMessage += '```\n\n';
+            });
+            
+            return fullMessage;
+        }
+
+        async function initDB() {
+            const SQL = await initSqlJs({
+                locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+            });
+
+            const savedDB = localStorage.getItem('ollama_single_conv_db');
+            if (savedDB) {
+                const uint8Array = new Uint8Array(JSON.parse(savedDB));
+                db = new SQL.Database(uint8Array);
+            } else {
+                db = new SQL.Database();
+                db.run(`
+                    CREATE TABLE conversations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        model TEXT,
+                        system_prompt TEXT,
+                        initial_prompt TEXT
+                    );
+                    CREATE TABLE messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        conversation_id INTEGER,
+                        role TEXT,
+                        content TEXT,
+                        FOREIGN KEY(conversation_id) REFERENCES conversations(id)
+                    );
+                `);
+            }
+        }
+
+        function saveDB() {
+            const data = db.export();
+            const buffer = JSON.stringify(Array.from(data));
+            localStorage.setItem('ollama_single_conv_db', buffer);
+        }
+
+        function saveConversation() {
+            if (currentConversationId !== null && conversationMessages.length > 0) {
+                const lastSavedMessageIndex = db.exec('SELECT COUNT(*) FROM messages WHERE conversation_id = ?', [currentConversationId])[0].values[0][0];
+                
+                for (let i = lastSavedMessageIndex; i < conversationMessages.length; i++) {
+                    const msg = conversationMessages[i];
+                    db.run(
+                        'INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)',
+                        [currentConversationId, msg.role, msg.content]
+                    );
+                }
+                
+            } else if (conversationMessages.length > 0) {
+                const model = $('#model').val();
+                const systemPrompt = $('#prompt').val();
+                const initialPrompt = conversationMessages[0].content;
+                
+                db.run(
+                    'INSERT INTO conversations (model, system_prompt, initial_prompt) VALUES (?, ?, ?)',
+                    [model, systemPrompt, initialPrompt]
+                );
+
+                const result = db.exec('SELECT last_insert_rowid() as id');
+                currentConversationId = result[0].values[0][0];
+
+                conversationMessages.forEach(msg => {
+                    db.run(
+                        'INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)',
+                        [currentConversationId, msg.role, msg.content]
+                    );
+                });
+            } else {
+                return;
+            }
+
+            saveDB();
+            updateStatus('💾 Beszélgetés mentve!');
+        }
+
+        function loadHistory() {
+            const result = db.exec('SELECT * FROM conversations ORDER BY created_at DESC');
+            const $list = $('#historyList');
+            $list.empty();
+
+            if (!result.length || !result[0].values.length) {
+                $list.html('<p style="text-align:center;color:#888;">Még nincsenek mentett beszélgetések</p>');
+                return;
+            }
+
+            result[0].values.forEach(row => {
+                const [id, created_at, model, system_prompt, initial_prompt] = row;
+                const date = new Date(created_at).toLocaleString('hu-HU');
+
+                $list.append(`
+                    <div class="history-item">
+                        <div class="history-header">
+                            <div>
+                                <div class="history-title">${escapeHtml(initial_prompt.substring(0, 60))}${initial_prompt.length > 60 ? '...' : ''}</div>
+                                <div class="history-models">Modell: ${model}</div>
+                                <div class="history-date">${date}</div>
+                            </div>
+                            <div>
+                                <button class="btn-load" onclick="loadConversation(${id})">📂 Betöltés</button>
+                                <button class="btn-export-single" onclick="exportSingleConversationToHtml(${id})">📄 Export</button>
+                                <button class="btn-delete" onclick="deleteConversation(${id})">🗑️ Törlés</button>
+                            </div>
+                        </div>
+                    </div>
+                `);
+            });
+        }
+
+        window.loadConversation = function(id) {
+            const convResult = db.exec('SELECT * FROM conversations WHERE id = ?', [id]);
+            const msgResult = db.exec('SELECT * FROM messages WHERE conversation_id = ? ORDER BY id', [id]);
+
+            if (!convResult.length) return;
+
+            const [_, created_at, model, system_prompt, initial_prompt] = convResult[0].values[0];
+            
+            currentConversationId = id;
+            conversationMessages = [];
+            $('#chatContainer').empty();
+            
+            $('#model').val(model);
+            $('#prompt').val(system_prompt);
+
+            appendMessage('--- BESZÉLGETÉS BETÖLTVE ---', 'system');
+            
+            if (msgResult.length) {
+                msgResult[0].values.forEach(msg => {
+                    const [msg_id, conv_id, role, content] = msg;
+                    
+                    const messageClass = role === 'user' ? 'user-message' : 'model-a-message';
+                    const headerText = role === 'user' ? 'Felhasználó' : model;
+                    
+                    $('#chatContainer').append(`<div class="message ${messageClass}"><div class="message-header">${headerText}</div><div class="message-content"></div></div>`);
+                    
+                    const processed = processCodeBlock(content, false);
+                    $('.message:last .message-content').html(processed).attr('data-original-text', content);
+                    
+                    conversationMessages.push({ role, content });
+                });
+            }
+
+            if ($('#showOnlyLastCode').is(':checked')) {
+                $('#showOnlyLastCode').prop('checked', false).trigger('change');
+            }
+            
+            $('.tab[data-tab="chat"]').click();
+            updateStatus('📂 Beszélgetés betöltve');
+        };
+
+        window.deleteConversation = function(id) {
+            if (!confirm('Biztosan törölni szeretnéd ezt a beszélgetést?')) return;
+
+            db.run('DELETE FROM messages WHERE conversation_id = ?', [id]);
+            db.run('DELETE FROM conversations WHERE id = ?', [id]);
+            saveDB();
+            loadHistory();
+            if (currentConversationId === id) {
+                newChat();
+            }
+            updateStatus('🗑️ Beszélgetés törölve');
+        };
+        
+        function getConversationDetails(id) {
+            const convResult = db.exec('SELECT * FROM conversations WHERE id = ?', [id]);
+            const msgResult = db.exec('SELECT * FROM messages WHERE conversation_id = ? ORDER BY id', [id]);
+
+            if (!convResult.length) return null;
+
+            const [_, created_at, model, system_prompt, initial_prompt] = convResult[0].values[0];
+            const messages = msgResult.length ? msgResult[0].values.map(msg => ({
+                role: msg[2],
+                content: msg[3]
+            })) : [];
+
+            return { id, created_at, model, system_prompt, initial_prompt, messages };
+        }
+
+        function formatConversationToHtml(conversation) {
+            let htmlContent = `
+                <div style="border: 2px solid #667eea; border-radius: 10px; margin-bottom: 30px; padding: 20px; background-color: #f8f9fa;">
+                    <h2 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Chat Beszélgetés #${conversation.id}</h2>
+                    <p style="margin-top: 10px;"><strong>Modell:</strong> ${conversation.model}</p>
+                    <p><strong>Dátum:</strong> ${new Date(conversation.created_at).toLocaleString('hu-HU')}</p>
+                    
+                    <hr style="margin: 15px 0; border: 0; border-top: 1px dashed #ccc;">
+                    <div style="overflow-y: auto; padding-right: 10px;">
+            `;
+
+            conversation.messages.forEach(msg => {
+                const isUser = msg.role === 'user';
+                const senderName = isUser ? 'Felhasználó' : conversation.model;
+                const backgroundColor = isUser ? '#e6e9ff' : '#f0f0f0';
+                const headerColor = isUser ? '#3f51b5' : '#009688';
+
+                const formattedContent = msg.content.replace(/```(.*?)\n([\s\S]*?)```/g, (match, lang, code) => {
+                    const language = lang.trim() || 'kód';
+                    return `<div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 8px; margin: 10px 0; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto;">
+                                <div style="color: #ccc; font-size: 10px; text-align: right; margin-bottom: 5px;">${language}</div>
+                                <pre style="margin: 0; white-space: pre-wrap;">${escapeHtml(code)}</pre>
+                            </div>`;
+                });
+                
+                const finalContent = formattedContent.replace(/```[\s\S]*?```/g, (match) => {
+                    return match;
+                }).replace(/\n/g, '<br>');
+
+                htmlContent += `
+                    <div style="margin-bottom: 15px; padding: 10px 15px; border-radius: 8px; background: ${backgroundColor}; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+                        <div style="font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #e0e0e0; color: ${headerColor}; font-size: 12px;">
+                            ${senderName}
+                        </div>
+                        <div style="white-space: pre-wrap; font-size: 14px;">
+                            ${finalContent}
+                        </div>
+                    </div>
+                `;
+            });
+
+            htmlContent += `
+                    </div>
+                </div>
+            `;
+            return htmlContent;
+        }
+
+        window.exportSingleConversationToHtml = function(id) {
+            const conversation = getConversationDetails(id);
+
+            if (!conversation) {
+                alert('A beszélgetés nem található!');
+                return;
+            }
+            
+            const singleConvHtml = formatConversationToHtml(conversation);
+
+            let fullExportHtml = `
+                <!DOCTYPE html>
+                <html lang="hu">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Ollama Chat Export - #${conversation.id}</title>
+                    <style>
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f4f4; }
+                        .container { max-width: 900px; margin: 0 auto; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1 style="text-align: center; color: #764ba2;">Ollama Beszélgetés Exportálása</h1>
+                        <p style="text-align: center; color: #555; margin-bottom: 30px;">Export dátuma: ${new Date().toLocaleString('hu-HU')}</p>
+                        <hr>
+                        ${singleConvHtml}
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob([fullExportHtml], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${conversation.initial_prompt}_${new Date(conversation.created_at).toISOString().slice(0, 10).replace(/-/g, '')}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            updateStatus(`✅ Beszélgetés #${id} HTML-be exportálva!`);
+        };
+
+        function exportAllConversations() {
+            const result = db.exec('SELECT id FROM conversations ORDER BY created_at DESC');
+            if (!result.length || !result[0].values.length) {
+                alert('Nincsenek mentett beszélgetések az exportáláshoz!');
+                return;
+            }
+
+            let fullExportHtml = `
+                <!DOCTYPE html>
+                <html lang="hu">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Ollama Chat Export</title>
+                    <style>
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f4f4; }
+                        .container { max-width: 900px; margin: 0 auto; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1 style="text-align: center; color: #764ba2;">Ollama Egy Modell Chat Exportálása</h1>
+                        <p style="text-align: center; color: #555; margin-bottom: 30px;">Export dátuma: ${new Date().toLocaleString('hu-HU')}</p>
+                        <hr>
+            `;
+
+            result[0].values.forEach(row => {
+                const conversationId = row[0];
+                const conversation = getConversationDetails(conversationId);
+                if (conversation) {
+                    fullExportHtml += formatConversationToHtml(conversation);
+                }
+            });
+
+            fullExportHtml += `
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob([fullExportHtml], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ollama_chat_export_osszes_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            updateStatus('✅ Minden beszélgetés HTML-be exportálva!');
+        }
+        
+        $('.tab').click(function() {
+            const tabName = $(this).data('tab');
+            $('.tab').removeClass('active');
+            $(this).addClass('active');
+            $('.tab-content').removeClass('active');
+            $(`#${tabName}-tab`).addClass('active');
+
+            if (tabName === 'history') {
+                loadHistory();
+            }
+        });
+        
+        function newChat() {
+            currentConversationId = null;
+            conversationMessages = [];
+            uploadedFiles = [];
+            updateFileDisplay();
+            $('#chatContainer').empty();
+            $('#userInput').val('');
+            appendMessage('--- ÚJ BESZÉLGETÉS KEZDVE ---', 'system');
+            updateStatus('Kész az üzenetküldésre');
+        }
+
+        function updateStatus(message, isLoading = false) {
+            const loadingHTML = isLoading ? '<span class="loading"></span>' : '';
+            $('#statusBar').html(message + loadingHTML);
+        }
+
+        function appendMessage(content, type = 'text', role = null) {
+            const $chat = $('#chatContainer');
+            
+            if (type === 'system') {
+                $chat.append(`<div class="system-msg">${content}</div>`);
+            } else if (type === 'error') {
+                $chat.append(`<div class="error-msg">${content}</div>`);
+            } else if (role === 'user') {
+                const headerText = 'Felhasználó';
+                $chat.append(`<div class="message user-message"><div class="message-header">${headerText}</div><div class="message-content" data-original-text="${escapeHtml(content)}">${processCodeBlock(content, false)}</div></div>`);
+                autoScrollChat();
+            } else if (role === 'assistant') {
+                const headerText = $('#model').val();
+                $chat.append(`<div class="message model-a-message"><div class="message-header">${headerText}</div><div class="message-content" data-original-text=""></div></div>`);
+                autoScrollChat();
+            } else {
+                $('.message:last .message-content').append(content);
+                autoScrollChat();
+            }
+        }
+        
+        function autoScrollChat() {
+             const $chat = $('#chatContainer');
+             $chat.scrollTop($chat[0].scrollHeight);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function processCodeBlock(text, showOnlyLast = false) {
+            if (!text || typeof text !== 'string') return '';
+
+            const codeBlockRegex = /```(.*?)\n([\s\S]*?)```/g;
+            const allMatches = [];
+            let match;
+            
+            const localRegex = /```(.*?)\n([\s\S]*?)```/g;
+
+            while ((match = localRegex.exec(text)) !== null) {
+                allMatches.push({
+                    fullMatch: match[0],
+                    code: match[2],
+                    start: match.index,
+                    end: match.index + match[0].length
+                });
+            }
+
+            if (allMatches.length === 0) {
+                return '<div style="margin: 0px 0; white-space: pre-wrap;">' + escapeHtml(text).replace(/\n/g, '<br>') + '</div>';
+            }
+
+            if (showOnlyLast) {
+                const m = allMatches[allMatches.length - 1];
+                const codeId = 'code-' + Date.now();
+                return `<div class="code-block" data-code-id="${codeId}">
+                    <button class="copy-btn" data-copy-target="${codeId}">📋 Másolás</button>
+                    <pre data-code="${codeId}">${escapeHtml(m.code)}</pre>
+                </div>`;
+            }
+
+            let result = '';
+            let lastIndex = 0;
+
+            allMatches.forEach((m, idx) => {
+                if (m.start > lastIndex) {
+                    const textBefore = text.substring(lastIndex, m.start);
+                    if (textBefore) {
+                        result += '<div style="margin: 0px 0; white-space: pre-wrap;">' + escapeHtml(textBefore).replace(/\n/g, '<br>') + '</div>';
+                    }
+                }
+
+                const codeId = 'code-' + Date.now() + '-' + idx;
+                result += `<div class="code-block" data-code-id="${codeId}">
+                    <button class="copy-btn" data-copy-target="${codeId}">📋 Másolás</button>
+                    <pre data-code="${codeId}">${escapeHtml(m.code)}</pre>
+                </div>`;
+
+                lastIndex = m.end;
+            });
+
+            if (lastIndex < text.length) {
+                const textAfter = text.substring(lastIndex);
+                if (textAfter) {
+                    result += '<div style="margin: 0px 0; white-space: pre-wrap;">' + escapeHtml(textAfter).replace(/\n/g, '<br>') + '</div>';
+                }
+            }
+
+            return result;
+        }
+
+        $('#showOnlyLastCode').on('change', function() {
+            const showOnlyLast = $(this).is(':checked');
+            const $lastMessageContent = $('.message-content:last');
+            const originalText = $lastMessageContent.attr('data-original-text');
+
+            if (!originalText) {
+                updateStatus('Nincs üzenet a mód váltásához', false);
+                return;
+            }
+
+            if (showOnlyLast) {
+                const processed = processCodeBlock(originalText, true);
+                $lastMessageContent.html(processed);
+                updateStatus('📄 Csak utolsó kód mód aktív');
+            } else {
+                $('.message-content').each(function() {
+                    const $content = $(this);
+                    const text = $content.attr('data-original-text');
+                    if (text) {
+                        const processed = processCodeBlock(text, false);
+                        $content.html(processed);
+                    }
+                });
+                updateStatus('📋 Teljes nézet aktív');
+            }
+        });
+
+        $(document).on('click', '.copy-btn', function(e) {
+            e.preventDefault();
+            const targetId = $(this).data('copy-target');
+            const codeBlock = $(`pre[data-code="${targetId}"]`).text();
+            
+            navigator.clipboard.writeText(codeBlock).then(() => {
+                const $btn = $(this);
+                const originalText = $btn.text();
+                $btn.text('✓ Másolva!').addClass('copied');
+                setTimeout(() => {
+                    $btn.text(originalText).removeClass('copied');
+                }, 2000);
+            });
+        });
+        
+        async function searchDuckDuckGo(query) {
+            const max_results_to_fetch = 3;
+
+            try {
+                const response = await fetch(DUCKDUCKGO_API, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        max_results: max_results_to_fetch 
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Proxy DDG hiba: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                return data;
+
+            } catch (error) {
+                console.error("DuckDuckGo hiba:", error);
+                throw new Error(`Hiba a DuckDuckGo keresés során: ${error.message}`);
+            }
+        }
+
+async function streamChat(model, systemPrompt, userMessage) {
+            
+            if (isRunning) return;
+            
+            const modelName = $('#model').val();
+            const duckDuckGoEnabled = $('#enableDuckDuckGo').is(':checked');
+            
+            const originalUserMessage = userMessage;
+            
+            if (duckDuckGoEnabled) {
+                appendMessage(`🔍 DuckDuckGo keresés indítása: "${originalUserMessage}"`, 'system');
+                updateStatus('🌐 Keresés DuckDuckGo-val...', true);
+                
+                try {
+                    const sources = await searchDuckDuckGo(originalUserMessage);
+                    
+                    if (sources && sources.length > 0) {
+                        let sourceText = "\n\n### Keresési Források (DuckDuckGo)\n";
+                        sources.forEach((s, index) => {
+                            sourceText += `[Forrás ${index + 1} URL]: ${s.url}\n`;
+                            sourceText += `[Forrás ${index + 1} Cím]: ${s.title}\n`;
+                            sourceText += `[Forrás ${index + 1} Tartalom]:\n\`\`\`text\n${s.content}\n\`\`\`\n\n`;
+                        });
+                        sourceText += "###\n\n";
+
+                        userMessage = `${originalUserMessage}\n\n${sourceText}`;
+                        appendMessage(`✅ Keresési eredmények beillesztve (${sources.length} forrás).`, 'system');
+                    } else {
+                        appendMessage(`⚠️ Nincs releváns keresési eredmény. Folytatás keresés nélkül.`, 'system');
+                    }
+                } catch (error) {
+                    appendMessage(`❌ Hiba a DuckDuckGo keresés közben: ${error.message}`, 'error');
+                } finally {
+                    $('#enableDuckDuckGo').prop('checked', false);
+                    updateStatus('Beszélgetés folyamatban', true);
+                }
+            }
+            
+            // System promptot az első user üzenethez fűzzük, ha ez az első üzenet
+            let messages = [];
+            
+            if (conversationMessages.length === 0) {
+                // Első üzenet: system prompt + user message kombinálva
+                messages.push({ 
+                    role: 'user', 
+                    content: `<SYSTEM_INSTRUCTIONS>\n${systemPrompt}\n</SYSTEM_INSTRUCTIONS>\n\n${userMessage}` 
+                });
+            } else {
+                // Folytatás: korábbi üzenetek + új user message
+                conversationMessages.forEach(msg => {
+                    messages.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.content });
+                });
+                messages.push({ role: 'user', content: userMessage });
+            }
+            
+            appendMessage(originalUserMessage, 'text', 'user');
+            conversationMessages.push({ role: 'user', content: originalUserMessage });
+            
+            appendMessage('', 'text', 'assistant');
+
+            isRunning = true;
+            stopRequested = false;
+            $('#sendBtn').prop('disabled', true);
+            $('#newChatBtn').prop('disabled', true);
+            $('#stopBtn').prop('disabled', false);
+            updateStatus('Modell válaszol...', true);
+            
+            try {
+                abortController = new AbortController();
+                
+                const response = await fetch(OLLAMA_API, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/x-ndjson'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: messages,
+                        stream: true
+                    }),
+                    signal: abortController.signal
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullReply = '';
+                let buffer = '';
+                const $messageContent = $('.message:last .message-content');
+
+                while (true) {
+                    if (stopRequested) break;
+                    
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            const json = JSON.parse(line);
+                            const content = json.message?.content || '';
+                            if (content) {
+                                fullReply += content;
+                                
+                                if (!$('#showOnlyLastCode').is(':checked')) {
+                                    const processed = processCodeBlock(fullReply, false);
+                                    $messageContent.html(processed);
+                                    autoScrollChat();
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                $messageContent.attr('data-original-text', fullReply);
+                
+                if ($('#showOnlyLastCode').is(':checked')) {
+                    const processed = processCodeBlock(fullReply, true);
+                    $messageContent.html(processed);
+                } else {
+                    const processed = processCodeBlock(fullReply, false);
+                    $messageContent.html(processed);
+                }
+
+                conversationMessages.push({
+                    role: 'assistant',
+                    content: fullReply,
+                    model: modelName
+                });
+                
+                uploadedFiles = [];
+                updateFileDisplay();
+                
+                saveConversation();
+                updateStatus('Válasz befejezve');
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    appendMessage('Kérés megszakítva (felhasználó)', 'system');
+                    updateStatus('Beszélgetés leállítva');
+                } else {
+                    appendMessage(`Hiba: ${error.message}`, 'error');
+                    updateStatus('Hiba történt');
+                }
+            } finally {
+                isRunning = false;
+                $('#sendBtn').prop('disabled', false);
+                $('#newChatBtn').prop('disabled', false);
+                $('#stopBtn').prop('disabled', true);
+                $('#stopBtn').text('⏹️ Leállítás');
+                $('#userInput').val('');
+                autoExpand($('#userInput')[0]);
+            }
+        }
+
+        async function startOrContinueChat() {
+            const model = $('#model').val().trim();
+            const prompt = $('#prompt').val().trim();
+            let userInput = $('#userInput').val().trim();
+
+            if (!model) {
+                alert('Kérlek, add meg a modell nevét a Beállítások fülön!');
+                return;
+            }
+            if (!userInput && uploadedFiles.length === 0) {
+                alert('Kérlek, írj be egy üzenetet vagy csatolj fájlokat!');
+                return;
+            }
+            
+            if (uploadedFiles.length > 0) {
+                userInput = buildMessageWithFiles(userInput || 'Kérlek elemezd a csatolt fájlokat.');
+            }
+            
+            await streamChat(model, prompt, userInput);
+        }
+
+        $('#newChatBtn').click(newChat);
+        $('#sendBtn').click(startOrContinueChat);
+        $('#userInput').keypress(function(e) {
+            if (e.which === 13 && !e.shiftKey) {
+                e.preventDefault();
+                $('#sendBtn').click();
+            }
+        });
+
+        $('#stopBtn').click(() => {
+            stopRequested = true;
+            if (abortController) {
+                abortController.abort();
+            }
+            updateStatus('Leállítás kérése...');
+            $('#stopBtn').text('⏳ Leállítás...');
+        });
+        
+        $(document).on('click', '#exportHistoryBtn', exportAllConversations);
+
+        $(document).ready(async () => {
+            await initDB();
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/tags', {
+                    method: 'GET'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus(`✔ Proxy és Ollama elérhető - ${data.models?.length || 0} modell telepítve`);
+                } else {
+                    updateStatus('⚠️ Proxy fut, de Ollama nem válaszol');
+                }
+            } catch (error) {
+                updateStatus('❌ Proxy szerver nem fut!');
+                appendMessage(`
+                    <strong>Proxy szerver hiba!</strong><br><br>
+                    <strong>Lépések:</strong><br>
+                    1. Telepítsd a szükséges csomagokat:<br>
+                    <code style="background:#f0f0f0;padding:5px;display:block;margin:5px 0;">
+                    pip install flask flask-cors requests beautifulsoup4
+                    </code><br>
+                    2. Mentsd el a proxy_server.py fájlt<br>
+                    3. Indítsd el a proxy szervert:<br>
+                    <code style="background:#f0f0f0;padding:5px;display:block;margin:5px 0;">
+                    python proxy_server.py
+                    </code><br>
+                    4. Frissítsd ezt az oldalt (F5)
+                `, 'error');
+            }
+            
+            newChat();
+        });
+    </script>
+</body>
+</html>
